@@ -1,3 +1,5 @@
-void kernel_main(){
-
+extern "C" void kmain(){
+    while(true){
+        // Do nothing
+    }
 }
