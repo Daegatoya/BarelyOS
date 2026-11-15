@@ -4,6 +4,30 @@ Graphics::Graphics(uint8_t* framebuffer, uint64_t width, uint64_t height, uint64
 
 }
 
+void Graphics::ScrollUp(uint64_t pixelRows, uint32_t backgroundColor) {
+    const uint64_t bytes = 4;
+    if (pixelRows == 0) {
+        return;
+    }
+    if (this->bpp != (bytes * 8) || this->pitch < this->width * bytes) {
+        return;
+    }
+    if (this->framebuffer == nullptr) {
+        return;
+    }
+    if (pixelRows >= this->height) {
+        Clear(backgroundColor);
+        return;
+    }
+    Mem::Memmove(this->framebuffer, (this->framebuffer + pixelRows * this->pitch), ((this->height - pixelRows) * this->pitch));
+
+    for (uint64_t y = height - pixelRows; y < height; y++) {
+        for (uint64_t x = 0; x < width; x++) {
+            PutPixel(x, y, backgroundColor);
+        }
+    }
+}
+
 /*
 Puts a pixel on a frambuffer
 @param x : x coordinate of the pixel
@@ -43,10 +67,18 @@ void Graphics::DrawChar(char c, uint64_t x, uint64_t y, uint32_t color, const Bi
     for (int i = 0; i < height; i++) {
         uint8_t tmp = glyph[i];
         for (int j = 0; j < width; j++) {
-            if (tmp & (0x80 >> j)) {
+            if (tmp & (1u << j)) {
                 PutPixel(x + j, y + i, color);
             }
         }
     }
+}
+
+uint64_t Graphics::GetHeight() {
+    return this->height;
+}
+
+uint64_t Graphics::GetWidth() {
+    return this->width;
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
-#include "fonts/bitmap_font.h"
+#include "../fonts/bitmap_font.h"
+#include "../memory/mem.h"
 
 class Graphics {
 private:
@@ -13,4 +14,7 @@ public:
 	void PutPixel(uint64_t x, uint64_t y, uint32_t color);
 	void Clear(uint32_t color);
 	void DrawChar(char c, uint64_t x, uint64_t y, uint32_t color, const BitmapFont& font);
+	uint64_t GetWidth();
+	uint64_t GetHeight();
+	void ScrollUp(uint64_t pixelRows, uint32_t backgroundColor);
 };

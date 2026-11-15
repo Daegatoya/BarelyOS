@@ -8,7 +8,7 @@ private:
 
 public:
 	BitmapFont(uint8_t width, uint8_t height, const uint8_t* glyphs);
-	uint8_t GetWidth();
-	uint8_t GetHeight();
-	const uint8_t* GetGlyph(char c);
+	uint8_t GetWidth() const;
+	uint8_t GetHeight() const;
+	const uint8_t* GetGlyph(char c) const;
 };

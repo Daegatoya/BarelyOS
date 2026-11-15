@@ -1,5 +1,5 @@
 #pragma once
-#include "graphics/graphics.h"
+#include "../graphics/graphics.h"
 
 class Terminal{
 private:
