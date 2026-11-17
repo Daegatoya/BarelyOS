@@ -2,6 +2,7 @@
 #include "terminal/terminal.h"
 #include "fonts/bitmap_font.h"
 #include "fonts/font8xx8_basic.h"
+#include "keyboard/keyboard.h"
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t requests_start[4] = LIMINE_REQUESTS_START_MARKER;
@@ -23,11 +24,31 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
     Graphics graphics(framebuffer, width, height, pitch, bpp);
     BitmapFont font(8, 8, &font8x8_basic[0][0]);
     Terminal terminal(graphics, font);
+    Keyboard keyboard;
 
     terminal.Initialize();
     terminal.Write("BarelyOS v0.1\n");
     terminal.Write("An operating system. Barely.\n");
-    terminal.Write("Hello World!");
+    terminal.Write("Hello World!\n\n");
+    terminal.Write("BarelyOS> ");
+
+    uint8_t scanCode = 0;
+
+    while (true) {
+        bool hasDataToRead = keyboard.ReadScanCode(scanCode);
+        if (!hasDataToRead) {
+            continue;
+        }
+        else {
+            char c = keyboard.ScanCodeToChar(scanCode);
+            if (c == '\b') {
+                terminal.BackSpace();
+            }
+            else if (c != '\0') {
+                terminal.WriteChar(c);
+            }
+        }
+    }
 }
 
 extern "C" void kmain(){

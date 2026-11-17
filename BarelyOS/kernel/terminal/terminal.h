@@ -14,4 +14,5 @@ public:
     void WriteChar(char c);
     void NewLine();
     void Clear();
+    void BackSpace();
 };

@@ -57,3 +57,17 @@ void Terminal::Write(const char* text) {
 		i++;
 	}
 }
+
+void Terminal::BackSpace() {
+	if (this->cursorX != 0) {
+		this->cursorX--;
+		uint64_t pixelX = this->cursorX * this->font.GetWidth();
+		uint64_t pixelY = this->cursorY * this->font.GetHeight();
+
+		for (uint64_t y = 0; y < this->font.GetHeight(); y++) {
+			for (uint64_t x = 0; x < this->font.GetWidth(); x++) {
+				this->graphics.PutPixel(pixelX + x, pixelY + y, this->backgroundColor);
+			}
+		}
+	}
+}
