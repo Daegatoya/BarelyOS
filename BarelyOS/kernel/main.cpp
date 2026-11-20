@@ -3,6 +3,7 @@
 #include "fonts/bitmap_font.h"
 #include "fonts/font8xx8_basic.h"
 #include "keyboard/keyboard.h"
+#include "shell/shell.h"
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t requests_start[4] = LIMINE_REQUESTS_START_MARKER;
@@ -25,6 +26,8 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
     BitmapFont font(8, 8, &font8x8_basic[0][0]);
     Terminal terminal(graphics, font);
     Keyboard keyboard;
+    Shell shell(terminal);
+
 
     terminal.Initialize();
     terminal.Write("BarelyOS v0.1\n");
@@ -41,11 +44,8 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
         }
         else {
             char c = keyboard.ScanCodeToChar(scanCode);
-            if (c == '\b') {
-                terminal.BackSpace();
-            }
-            else if (c != '\0') {
-                terminal.WriteChar(c);
+            if (c != '\0') {
+                shell.HandleInput(c);
             }
         }
     }
