@@ -13,12 +13,13 @@ private:
 	uint64_t bitmapPhysicalAddress = 0;
 	uint64_t highestEnd = 0;
 	const limine_memmap_response* memmap;
+	bool initialized = false;
 public:
 	PhysicalMemoryManager(const limine_memmap_response* memmap, uint64_t hhdmOffset);
 	bool Initialize();
 	uint64_t AllocatePage();
 	bool FreePage(uint64_t physicalAddress);
-	bool MarkFreePage(uint64_t pageIndex);
+	void MarkFreePage(uint64_t pageIndex);
 	uint64_t GetFreePages() const;
 	uint64_t GetUsedPages() const;
 };

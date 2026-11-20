@@ -46,6 +46,99 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
 
 
     terminal.Initialize();
+    if (!pmm.Initialize()) {
+        terminal.Write("Physical Memory Manager initialization failed.\n");
+
+        for (;;) {
+            __asm__ volatile("cli; hlt");
+        }
+    }
+
+    terminal.Write("Physical Memory Manager initialized.\n");
+    terminal.Write("\nInitializing Physical Memory Manager tests...\n");
+
+    uint64_t freeBefore = pmm.GetFreePages();
+
+    // 1. Allocate three physical pages
+    if (freeBefore < 3) {
+        terminal.Write("Physical Memory Manager test failed: insufficient free pages.\n");
+    }
+    else {
+        uint64_t page1 = pmm.AllocatePage();
+        uint64_t page2 = pmm.AllocatePage();
+        uint64_t page3 = pmm.AllocatePage();
+
+        // 2. Validate allocated pages
+        bool allocationsValid =
+            page1 != UINT64_MAX &&
+            page2 != UINT64_MAX &&
+            page3 != UINT64_MAX &&
+            page1 != page2 &&
+            page1 != page3 &&
+            page2 != page3 &&
+            pmm.GetFreePages() == freeBefore - 3;
+
+        if (!allocationsValid) {
+            terminal.Write("Physical Memory Manager allocation test failed.\n");
+        }
+        else {
+            terminal.Write("Physical Memory Manager allocation test completed successfully.\n");
+
+            // 3. Validate HHDM address conversions
+            bool addressesValid =
+                page1 <= UINT64_MAX - hhdmOffset &&
+                page2 <= UINT64_MAX - hhdmOffset &&
+                page3 <= UINT64_MAX - hhdmOffset;
+
+            if (!addressesValid) {
+                terminal.Write("Physical Memory Manager address validation failed.\n");
+            }
+            else {
+                volatile uint64_t* ptr1 =
+                    reinterpret_cast<volatile uint64_t*>(page1 + hhdmOffset);
+
+                volatile uint64_t* ptr2 =
+                    reinterpret_cast<volatile uint64_t*>(page2 + hhdmOffset);
+
+                volatile uint64_t* ptr3 =
+                    reinterpret_cast<volatile uint64_t*>(page3 + hhdmOffset);
+
+                // 4. Write test values to physical memory
+                *ptr1 = 0x123456789ABCDEF0ULL;
+                *ptr2 = 0xDEADBEEFCAFEBABEULL;
+                *ptr3 = 0x1122334455667788ULL;
+
+                // 5. Verify stored values
+                bool memoryValid =
+                    *ptr1 == 0x123456789ABCDEF0ULL &&
+                    *ptr2 == 0xDEADBEEFCAFEBABEULL &&
+                    *ptr3 == 0x1122334455667788ULL;
+
+                if (memoryValid) {
+                    terminal.Write("Physical Memory Manager read/write test completed successfully.\n");
+                }
+                else {
+                    terminal.Write("Physical Memory Manager read/write test failed.\n");
+                }
+            }
+
+            // 6. Release allocated pages
+            bool freed1 = pmm.FreePage(page1);
+            bool freed2 = pmm.FreePage(page2);
+            bool freed3 = pmm.FreePage(page3);
+
+            bool releaseValid =
+                freed1 && freed2 && freed3 &&
+                pmm.GetFreePages() == freeBefore;
+
+            if (releaseValid) {
+                terminal.Write("Physical Memory Manager release test completed successfully.\n");
+            }
+            else {
+                terminal.Write("Physical Memory Manager release test failed.\n");
+            }
+        }
+    }
     terminal.Write("BarelyOS v0.1\n");
     terminal.Write("An operating system. Barely.\n");
     terminal.Write("Hello World!\n\n");
