@@ -15,4 +15,5 @@ public:
     void NewLine();
     void Clear();
     void BackSpace();
+    void WriteNumber(uint64_t number);
 };

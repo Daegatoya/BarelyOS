@@ -4,6 +4,7 @@
 #include "fonts/font8xx8_basic.h"
 #include "keyboard/keyboard.h"
 #include "shell/shell.h"
+#include "memory/pmm.h"
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t requests_start[4] = LIMINE_REQUESTS_START_MARKER;
@@ -18,15 +19,30 @@ static volatile limine_framebuffer_request framebuffer_request = {
     nullptr
 };
 
+__attribute__((used, section(".limine_requests")))
+static volatile limine_memmap_request memmap_request = {
+    LIMINE_MEMMAP_REQUEST_ID,
+    0,
+    nullptr
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile limine_hhdm_request hhdm_request = {
+    LIMINE_HHDM_REQUEST_ID,
+    0,
+    nullptr
+};
+
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t requests_end[2] = LIMINE_REQUESTS_END_MARKER;
 
-void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uint64_t pitch, uint16_t bpp) {
+void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uint64_t pitch, uint16_t bpp, uint64_t totalMemory, const limine_memmap_response* memmap, uint64_t hhdmOffset) {
     Graphics graphics(framebuffer, width, height, pitch, bpp);
     BitmapFont font(8, 8, &font8x8_basic[0][0]);
     Terminal terminal(graphics, font);
     Keyboard keyboard;
-    Shell shell(terminal);
+    Shell shell(terminal, totalMemory);
+    PhysicalMemoryManager pmm(memmap, hhdmOffset);
 
 
     terminal.Initialize();
@@ -59,10 +75,34 @@ extern "C" void kmain(){
     }
 
     auto* response = framebuffer_request.response;
+    auto* memmap = memmap_request.response;
+    auto* hhdm = hhdm_request.response;
 
     if (response == nullptr || response->framebuffer_count == 0 || response->framebuffers == nullptr) {
         for (;;) {
             __asm__ volatile("cli; hlt");
+        }
+    }
+
+    if (memmap == nullptr || memmap->entries == nullptr) {
+        for (;;) {
+            __asm__ volatile("cli; hlt");
+        }
+    }
+
+    if (hhdm == nullptr) {
+        for (;;) {
+            __asm__ volatile("cli; hlt");
+        }
+    }
+
+    uint64_t totalUsableMemory = 0;
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        if (memmap->entries[i] == nullptr || memmap->entries[i]->type != LIMINE_MEMMAP_USABLE) {
+            continue;
+        }
+        else {
+            totalUsableMemory += memmap->entries[i]->length;
         }
     }
 
@@ -80,7 +120,7 @@ extern "C" void kmain(){
         }
     }
 
-    KernelInitialize(static_cast<uint8_t*>(fb->address), fb->width, fb->height, fb->pitch, fb->bpp);
+    KernelInitialize(static_cast<uint8_t*>(fb->address), fb->width, fb->height, fb->pitch, fb->bpp, totalUsableMemory, memmap, hhdm->offset);
 
     for (;;) {
         __asm__ volatile("cli; hlt");

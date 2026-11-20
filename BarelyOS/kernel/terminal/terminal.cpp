@@ -71,3 +71,18 @@ void Terminal::BackSpace() {
 		}
 	}
 }
+
+void Terminal::WriteNumber(uint64_t number) {
+	char digits[21]; // 21 because uint64_t can take 20 digits + the final \0.
+	digits[20] = '\0';
+	int i = 20;
+
+	do {
+		i--;
+		uint64_t digit = number % 10;
+		digits[i] = '0' + digit;
+		number /= 10;
+	} while (number > 0);
+
+	Write(&digits[i]);
+}

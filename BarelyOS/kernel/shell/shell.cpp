@@ -1,6 +1,6 @@
 #include "shell.h"
 
-Shell::Shell(Terminal& terminal) : terminal(terminal), buffer{}, inputLength(0) {
+Shell::Shell(Terminal& terminal, uint64_t availableMem) : terminal(terminal), availableMem(availableMem), buffer{}, inputLength(0) {
 }
 
 void Shell::HandleInput(char c) {
@@ -55,7 +55,9 @@ void Shell::ExecuteCommand() {
         this->terminal.Clear();
     }
     else if (StringEquals(this->buffer, "mem")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        this->terminal.Write("Usable physical memory at boot: ");
+        this->terminal.WriteNumber(this->availableMem / (1024 * 1024));
+        this->terminal.Write(" MiB\n");
     }
     else if (StringEquals(this->buffer, "tasks")) {
         this->terminal.Write("Command not yet implemented.\n");
