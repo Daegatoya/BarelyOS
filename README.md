@@ -1,7 +1,9 @@
-# BarelyOS =)
+# BarelyOS v0.1
 ## An operating system, barely.
 
 <img src="barelyos.jpg" alt="Alana Logo" width="500">
+
+> Download the .iso file [here](https://github.com/Daegatoya/BarelyOS/tree/main/BarelyOS/build/barelyos.iso)
 
 *A tiny experimental operating system written from scratch in C++.*
 
@@ -25,8 +27,8 @@ The long-term goal is to create a minimal but functional operating system capabl
 
 Below are the planned features for the v1.0 of BarelyOS:
 
-- [ ] Bootable ISO image
-- [ ] Custom kernel
+- [x] Bootable ISO image
+- [x] Custom kernel
 - [ ] Basic IO system
 - [ ] Simple CLI
 - [ ] Basic memory management
