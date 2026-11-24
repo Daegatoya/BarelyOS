@@ -5,6 +5,7 @@
 #include "keyboard/keyboard.h"
 #include "shell/shell.h"
 #include "memory/pmm.h"
+#include "threading/scheduler.h"
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t requests_start[4] = LIMINE_REQUESTS_START_MARKER;
@@ -36,6 +37,31 @@ static volatile limine_hhdm_request hhdm_request = {
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t requests_end[2] = LIMINE_REQUESTS_END_MARKER;
 
+static volatile uint64_t threadTestResult = 0;
+
+void TestThread() {
+    threadTestResult = 12345;
+}
+
+static Scheduler* testScheduler = nullptr;
+static volatile uint64_t executionOrder[6] = {};
+static volatile uint64_t executionCount = 0;
+
+void RunTestThread(uint64_t threadNumber) {
+    for (uint64_t i = 1; i <= 3; i++) {
+        executionOrder[executionCount++] = threadNumber * 10 + i;
+        testScheduler->Yield();
+    }
+}
+
+void TestThreadA() {
+    RunTestThread(1);
+}
+
+void TestThreadB() {
+    RunTestThread(2);
+}
+
 void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uint64_t pitch, uint16_t bpp, uint64_t totalMemory, const limine_memmap_response* memmap, uint64_t hhdmOffset) {
     Graphics graphics(framebuffer, width, height, pitch, bpp);
     BitmapFont font(8, 8, &font8x8_basic[0][0]);
@@ -59,7 +85,6 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
 
     uint64_t freeBefore = pmm.GetFreePages();
 
-    // 1. Allocate three physical pages
     if (freeBefore < 3) {
         terminal.Write("Physical Memory Manager test failed: insufficient free pages.\n");
     }
@@ -68,7 +93,6 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
         uint64_t page2 = pmm.AllocatePage();
         uint64_t page3 = pmm.AllocatePage();
 
-        // 2. Validate allocated pages
         bool allocationsValid =
             page1 != UINT64_MAX &&
             page2 != UINT64_MAX &&
@@ -84,7 +108,6 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
         else {
             terminal.Write("Physical Memory Manager allocation test completed successfully.\n");
 
-            // 3. Validate HHDM address conversions
             bool addressesValid =
                 page1 <= UINT64_MAX - hhdmOffset &&
                 page2 <= UINT64_MAX - hhdmOffset &&
@@ -103,12 +126,10 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
                 volatile uint64_t* ptr3 =
                     reinterpret_cast<volatile uint64_t*>(page3 + hhdmOffset);
 
-                // 4. Write test values to physical memory
                 *ptr1 = 0x123456789ABCDEF0ULL;
                 *ptr2 = 0xDEADBEEFCAFEBABEULL;
                 *ptr3 = 0x1122334455667788ULL;
 
-                // 5. Verify stored values
                 bool memoryValid =
                     *ptr1 == 0x123456789ABCDEF0ULL &&
                     *ptr2 == 0xDEADBEEFCAFEBABEULL &&
@@ -122,7 +143,6 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
                 }
             }
 
-            // 6. Release allocated pages
             bool freed1 = pmm.FreePage(page1);
             bool freed2 = pmm.FreePage(page2);
             bool freed3 = pmm.FreePage(page3);
@@ -139,7 +159,74 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
             }
         }
     }
-    terminal.Write("BarelyOS v0.1\n");
+
+    Scheduler scheduler(hhdmOffset, &pmm);
+
+    terminal.Write("\nInitializing Scheduler tests...\n");
+
+    if (!scheduler.Initialize()) {
+        terminal.Write("Scheduler initialization failed.\n");
+    }
+    else {
+        uint64_t freeBeforeThread = pmm.GetFreePages();
+
+        if (!scheduler.CreateThread(TestThread)) {
+            terminal.Write("Thread creation failed.\n");
+        }
+        else {
+            scheduler.Yield();
+
+            if (threadTestResult == 12345 &&
+                scheduler.GetThreadCount() == 0 &&
+                pmm.GetFreePages() == freeBeforeThread) {
+                terminal.Write("Scheduler test completed successfully.\n");
+            }
+            else {
+                terminal.Write("Scheduler test failed.\n");
+            }
+        }
+    }
+
+    terminal.Write("\nInitializing Round Robin tests...\n");
+
+    testScheduler = &scheduler;
+    executionCount = 0;
+
+    uint64_t freeBeforeThreads = pmm.GetFreePages();
+
+    bool createdA = scheduler.CreateThread(TestThreadA);
+    bool createdB = scheduler.CreateThread(TestThreadB);
+
+    if (!createdA || !createdB) {
+        terminal.Write("Round Robin thread creation failed.\n");
+    }
+    else {
+        for (uint64_t i = 0; i < 8 && scheduler.GetThreadCount() > 0; i++) {
+            scheduler.Yield();
+        }
+
+        bool orderValid =
+            executionCount == 6 &&
+            executionOrder[0] == 11 &&
+            executionOrder[1] == 21 &&
+            executionOrder[2] == 12 &&
+            executionOrder[3] == 22 &&
+            executionOrder[4] == 13 &&
+            executionOrder[5] == 23;
+
+        bool resourcesValid =
+            scheduler.GetThreadCount() == 0 &&
+            pmm.GetFreePages() == freeBeforeThreads;
+
+        if (orderValid && resourcesValid) {
+            terminal.Write("Round Robin test completed successfully.\n");
+        }
+        else {
+            terminal.Write("Round Robin test failed.\n");
+        }
+    }
+    terminal.Write("\n-----------------------------------------");
+    terminal.Write("\n\nBarelyOS v0.1\n");
     terminal.Write("An operating system. Barely.\n");
     terminal.Write("Hello World!\n\n");
     terminal.Write("BarelyOS> ");
