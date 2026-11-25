@@ -1,6 +1,9 @@
 #include "shell.h"
 
-Shell::Shell(Terminal& terminal, uint64_t availableMem) : terminal(terminal), availableMem(availableMem), buffer{}, inputLength(0) {
+Shell* Shell::active = nullptr;
+
+Shell::Shell(Terminal& terminal, uint64_t availableMem, Scheduler& scheduler) : terminal(terminal), availableMem(availableMem), scheduler(scheduler), buffer{}, inputLength(0) {
+    this->active = this;
 }
 
 void Shell::HandleInput(char c) {
@@ -46,35 +49,121 @@ bool StringEquals(const char* a, const char* b) {
 
 void Shell::ExecuteCommand() {
 	if (StringEquals(this->buffer, "help")) {
-		this->terminal.Write("Available commands: help, clear, version, mem, tasks, spawn, files, showfile, write\n");
+        bool create = scheduler.CreateThread([]() {
+            active->terminal.Write("\nAvailable commands: help, clear, version, mem, tasks, spawn, files, showfile, write\n\n");
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+        }
 	}
 	else if (StringEquals(this->buffer, "version")) {
-		this->terminal.Write("BarelyOS v0.1\n");
+        bool create = scheduler.CreateThread([]() {
+            active->terminal.Write("\nBarelyOS v0.1\n\n");
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+        }
 	}
     else if (StringEquals(this->buffer, "clear")) {
-        this->terminal.Clear();
+        bool create = scheduler.CreateThread([]() {
+            active->terminal.Clear();
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+        }
     }
     else if (StringEquals(this->buffer, "mem")) {
-        this->terminal.Write("Usable physical memory at boot: ");
-        this->terminal.WriteNumber(this->availableMem / (1024 * 1024));
-        this->terminal.Write(" MiB\n");
+        bool create = scheduler.CreateThread([]() {
+            active->terminal.Write("\nUsable physical memory at boot: ");
+            active->terminal.WriteNumber(active->availableMem / (1024 * 1024));
+            active->terminal.Write(" MiB\n\n");
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+        }
     }
     else if (StringEquals(this->buffer, "tasks")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        bool create = scheduler.CreateThread([]() {
+            uint64_t id;
+            ThreadState state;
+
+            active->terminal.Write("\nID\tSTATE\n\n");
+            for (uint64_t i = 0; i < 8; i++) {
+                bool success = active->scheduler.GetThreadInfo(i, id, state);
+                if (!success) {
+                    continue;
+                }
+                active->terminal.WriteNumber(id);
+                active->terminal.Write("\t");
+                switch (state) {
+                case ThreadState::READY:
+                    active->terminal.Write("READY");
+                    break;
+                case ThreadState::RUNNING:
+                    active->terminal.Write("RUNNING");
+                    break;
+                case ThreadState::FINISHED:
+                    active->terminal.Write("FINISHED");
+                    break;
+                default:
+                    active->terminal.Write("ERROR");
+                    break;
+                }
+                active->terminal.Write("\n");
+            }
+
+            active->terminal.Write("Amount of threads: ");
+            active->terminal.WriteNumber(active->scheduler.GetThreadCount());
+            active->terminal.Write("\n\n");
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+        }
     }
     else if (StringEquals(this->buffer, "spawn")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        this->terminal.Write("\nCreating thread...\n");
+        bool create = scheduler.CreateThread([]() {
+            active->terminal.Write("BarelyOS thread created!\n");
+            });
+
+        if (!create) {
+            this->terminal.Write("\nFailed to create thread.\n\n");
+        }
+        else {
+            scheduler.Yield();
+            this->terminal.Write("Thread execution completed.\n\n");
+        }
     }
     else if (StringEquals(this->buffer, "files")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        this->terminal.Write("\nCommand not yet implemented.\n\n");
     }
     else if (StringEquals(this->buffer, "showfile")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        this->terminal.Write("\nCommand not yet implemented.\n\n");
     }
     else if (StringEquals(this->buffer, "write")) {
-        this->terminal.Write("Command not yet implemented.\n");
+        this->terminal.Write("\nCommand not yet implemented.\n\n");
     }
 	else if (this->buffer[0] != '\0') {
-		this->terminal.Write("Unknown command.\n");
+		this->terminal.Write("\nUnknown command.\n\n");
 	}
 }

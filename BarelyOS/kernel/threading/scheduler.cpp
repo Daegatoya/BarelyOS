@@ -161,3 +161,14 @@ bool Scheduler::CreateThread(void(*entryPoint)()) {
 
 	return true;
 }
+
+bool Scheduler::GetThreadInfo(uint64_t index, uint64_t& id, ThreadState& state) const {
+	if (index >= 8 || this->threads[index].state == ThreadState::UNUSED) {
+		return false;
+	}
+
+	const Thread& tmp = this->threads[index];
+	id = tmp.id;
+	state = tmp.state;
+	return true;
+}

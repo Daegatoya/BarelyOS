@@ -23,4 +23,5 @@ public:
 	void ExitCurrentThread();
 	uint64_t GetThreadCount() const;
 	void StartCurrentThread();
+	bool GetThreadInfo(uint64_t index, uint64_t& id, ThreadState& state) const;
 };

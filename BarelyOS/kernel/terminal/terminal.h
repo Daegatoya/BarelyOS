@@ -7,6 +7,7 @@ private:
     uint32_t textColor, backgroundColor;
     Graphics& graphics; // Reference to the graphics engine
     const BitmapFont& font;
+    
 public:
     Terminal(Graphics& graphics, const BitmapFont& font);
     void Initialize();

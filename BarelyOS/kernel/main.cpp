@@ -37,6 +37,12 @@ static volatile limine_hhdm_request hhdm_request = {
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t requests_end[2] = LIMINE_REQUESTS_END_MARKER;
 
+uint64_t ReadTSC() {
+    uint32_t low, high;
+    __asm__ volatile("rdtsc" : "=a"(low), "=d"(high));
+    return (static_cast<uint64_t>(high) << 32) | low;
+}
+
 static volatile uint64_t threadTestResult = 0;
 
 void TestThread() {
@@ -67,8 +73,9 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
     BitmapFont font(8, 8, &font8x8_basic[0][0]);
     Terminal terminal(graphics, font);
     Keyboard keyboard;
-    Shell shell(terminal, totalMemory);
     PhysicalMemoryManager pmm(memmap, hhdmOffset);
+    Scheduler scheduler(hhdmOffset, &pmm);
+    Shell shell(terminal, totalMemory, scheduler);
 
 
     terminal.Initialize();
@@ -160,8 +167,6 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
         }
     }
 
-    Scheduler scheduler(hhdmOffset, &pmm);
-
     terminal.Write("\nInitializing Scheduler tests...\n");
 
     if (!scheduler.Initialize()) {
@@ -232,17 +237,41 @@ void KernelInitialize(uint8_t* framebuffer, uint64_t width, uint64_t height, uin
     terminal.Write("BarelyOS> ");
 
     uint8_t scanCode = 0;
+    bool cursorVisible = false;
+    uint64_t lastBlink = ReadTSC();
+    const uint64_t blinkInterval = 500000000;
 
     while (true) {
+        uint64_t now = ReadTSC();
+
+        if (now - lastBlink >= blinkInterval) {
+            if (cursorVisible) {
+                terminal.BackSpace();
+            }
+            else {
+                terminal.Write("_");
+            }
+
+            cursorVisible = !cursorVisible;
+            lastBlink = now;
+        }
+
         bool hasDataToRead = keyboard.ReadScanCode(scanCode);
+
         if (!hasDataToRead) {
             continue;
         }
-        else {
-            char c = keyboard.ScanCodeToChar(scanCode);
-            if (c != '\0') {
-                shell.HandleInput(c);
+
+        char c = keyboard.ScanCodeToChar(scanCode);
+
+        if (c != '\0') {
+            if (cursorVisible) {
+                terminal.BackSpace();
+                cursorVisible = false;
             }
+
+            shell.HandleInput(c);
+            lastBlink = ReadTSC();
         }
     }
 }
